@@ -1,6 +1,6 @@
 # Wordclock 2.0
 
-Wordclock 2.0 with ESP32 and NTP time
+Wordclock 2.0 with ESP32 and NTP time.  
 This is a forked repostiory to adapt it to ESP32 instead of ESP8266
 
 Source Repository: https://github.com/techniccontroller/wordclock_esp8266
