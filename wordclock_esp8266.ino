@@ -26,14 +26,16 @@
 #include <Adafruit_GFX.h>               // https://github.com/adafruit/Adafruit-GFX-Library
 #include <Adafruit_NeoMatrix.h>         // https://github.com/adafruit/Adafruit_NeoMatrix
 #include <Adafruit_NeoPixel.h>          // NeoPixel library used to run the NeoPixel LEDs: https://github.com/adafruit/Adafruit_NeoPixel
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
-#include <ESP8266WebServer.h>
+#include <WebServer.h>
 #include "Base64.h"                    // copied from https://github.com/Xander-Electronics/Base64 
 #include <DNSServer.h>
 #include <WiFiManager.h>                //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <EEPROM.h>                     //from ESP8266 Arduino Core (automatically installed when ESP8266 was installed via Boardmanager)
+#include <rom/rtc.h>
+#include <SPIFFS.h> 
 
 // own libraries
 #include "udplogger.h"
@@ -59,9 +61,9 @@
 #define ADR_MC_BLUE 24
 
 
-#define NEOPIXELPIN 5       // pin to which the NeoPixels are attached
-#define NUMPIXELS 125       // number of pixels attached to Attiny85
-#define BUTTONPIN 14        // pin to which the button is attached
+#define NEOPIXELPIN 23       // pin to which the NeoPixels are attached
+#define NUMPIXELS 300//125       // number of pixels attached to Attiny85
+#define BUTTONPIN 5        // pin to which the button is attached
 #define LEFT 1
 #define RIGHT 2
 #define LINE 10
@@ -140,7 +142,7 @@ const char WebserverURL[] = "www.wordclock.local";
 // ----------------------------------------------------------------------------------
 
 // Webserver
-ESP8266WebServer server(HTTPPort);
+WebServer server(HTTPPort);
 
 //DNS Server
 DNSServer DnsServer;
@@ -338,9 +340,10 @@ void setup() {
   delay(10);
   logger.logString("IP: " + WiFi.localIP().toString());
   delay(10);
-  logger.logString("Reset Reason: " + ESP.getResetReason());
+  logger.logString("Reset Reason: " + rtc_get_reset_reason(0));
 
-  if(!ESP.getResetReason().equals("Software/System restart")){
+  //if(!ESP.getResetReason().equals("Software/System restart")){
+  if(!rtc_get_reset_reason(0) != 3){
     // test quickly each LED
     for(int r = 0; r < HEIGHT; r++){
         for(int c = 0; c < WIDTH; c++){
@@ -428,7 +431,7 @@ void loop() {
 
   // send regularly heartbeat messages via UDP multicast
   if(millis() - lastheartbeat > PERIOD_HEARTBEAT){
-    logger.logString("Heartbeat, state: " + stateNames[currentState] + ", FreeHeap: " + ESP.getFreeHeap() + ", HeapFrag: " + ESP.getHeapFragmentation() + ", MaxFreeBlock: " + ESP.getMaxFreeBlockSize() + "\n");
+    logger.logString("Heartbeat, state: " + stateNames[currentState] + ", FreeHeap: " + heap_caps_get_free_size(1) + ", HeapFrag: " + heap_caps_get_largest_free_block(1) + ", MaxFreeBlock: " + heap_caps_get_largest_free_block(1) + "\n");
     lastheartbeat = millis();
 
     // Check wifi status (only if no apmode)

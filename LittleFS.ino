@@ -1,3 +1,4 @@
+#include <LittleFS.h>
 
 // ****************************************************************
 // Sketch Esp8266 Filesystem Manager spezifisch sortiert Modular(Tab)
@@ -46,23 +47,25 @@ void setupFS() {                                                                
 }
 
 bool handleList() {                                                                    // Senden aller Daten an den Client
-  FSInfo fs_info;  LittleFS.info(fs_info);                                             // Füllt FSInfo Struktur mit Informationen über das Dateisystem
-  Dir dir = LittleFS.openDir("/");
+  //FSInfo fs_info;  
+  //LittleFS.info(fs_info);                                             // Füllt FSInfo Struktur mit Informationen über das Dateisystem
+  //Dir dir = LittleFS.openDir("/");
+  File dir = LittleFS.open("/");
   using namespace std;
   using records = tuple<String, String, int>;
   list<records> dirList;
-  while (dir.next()) {                                                                 // Ordner und Dateien zur Liste hinzufügen
+  while (dir.openNextFile()) {                                                                 // Ordner und Dateien zur Liste hinzufügen
     if (dir.isDirectory()) {
       uint8_t ran {0};
-      Dir fold = LittleFS.openDir(dir.fileName());
-      while (fold.next())  {
+      File fold = LittleFS.open(dir.name());
+      while (fold.openNextFile())  {
         ran++;
-        dirList.emplace_back(dir.fileName(), fold.fileName(), fold.fileSize());
+        dirList.emplace_back(dir.name(), fold.name(), fold.size());
       }
-      if (!ran) dirList.emplace_back(dir.fileName(), "", 0);
+      if (!ran) dirList.emplace_back(dir.name(), "", 0);
     }
     else {
-      dirList.emplace_back("", dir.fileName(), dir.fileSize());
+      dirList.emplace_back("", dir.name(), dir.size());
     }
   }
   dirList.sort([](const records & f, const records & l) {                              // Dateien sortieren
@@ -90,9 +93,9 @@ bool handleList() {                                                             
     if (temp != "[") temp += ',';
     temp += "{\"folder\":\"" + get<0>(t) + "\",\"name\":\"" + get<1>(t) + "\",\"size\":\"" + formatBytes(get<2>(t)) + "\"}";
   }
-  temp += ",{\"usedBytes\":\"" + formatBytes(fs_info.usedBytes) +                      // Berechnet den verwendeten Speicherplatz
-          "\",\"totalBytes\":\"" + formatBytes(fs_info.totalBytes) +                   // Zeigt die Größe des Speichers
-          "\",\"freeBytes\":\"" + (fs_info.totalBytes - fs_info.usedBytes) + "\"}]";   // Berechnet den freien Speicherplatz
+  temp += ",{\"usedBytes\":\"" + formatBytes(SPIFFS.usedBytes()) +                      // Berechnet den verwendeten Speicherplatz
+          "\",\"totalBytes\":\"" + formatBytes(SPIFFS.totalBytes()) +                   // Zeigt die Größe des Speichers
+          "\",\"freeBytes\":\"" + (SPIFFS.totalBytes() - SPIFFS.usedBytes()) + "\"}]";   // Berechnet den freien Speicherplatz
   server.send(200, "application/json", temp);
   return true;
 }
@@ -102,11 +105,19 @@ void deleteRecursive(const String &path) {
     LittleFS.open(path.substring(0, path.lastIndexOf('/')) + "/", "w");
     return;
   }
-  Dir dir = LittleFS.openDir(path);
-  while (dir.next()) {
-    deleteRecursive(path + '/' + dir.fileName());
+  File dir = LittleFS.open(path);
+  while (dir.openNextFile()) {
+    deleteRecursive(path + '/' + dir.name());
   }
   LittleFS.rmdir(path);
+}
+
+String getContentType(String filename) { // convert the file extension to the MIME type
+  if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  return "text/plain";
 }
 
 bool handleFile(String &&path) {
@@ -124,7 +135,8 @@ bool handleFile(String &&path) {
   if (!LittleFS.exists("fs.html")) server.send(200, "text/html", LittleFS.begin() ? HELPER : WARNING);     // ermöglicht das hochladen der fs.html
   if (path.endsWith("/")) path += "index.html";
   if (path == "/spiffs.html") sendResponce(); // Vorrübergehend für den Admin Tab
-  return LittleFS.exists(path) ? ({File f = LittleFS.open(path, "r"); server.streamFile(f, mime::getContentType(path)); f.close(); true;}) : false;
+
+  return LittleFS.exists(path) ? ({File f = LittleFS.open(path, "r"); server.streamFile(f, getContentType(path)); f.close(); true;}) : false;
 }
 
 void handleUpload() {                                                                  // Dateien ins Filesystem schreiben
