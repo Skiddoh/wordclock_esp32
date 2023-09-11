@@ -7,7 +7,6 @@ Source Repository: https://github.com/techniccontroller/wordclock_esp8266
 
 More details on my website: https://techniccontroller.com/word-clock-with-wifi-and-neopixel/
 
-
 **Languages**
 
 The Wordclock is available in **German**, **English** and **Italian** language. By default the language is German. 
